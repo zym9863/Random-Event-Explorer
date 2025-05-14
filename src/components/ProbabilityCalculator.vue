@@ -112,7 +112,7 @@
                   P(A ∩ B) = P(A) × P(B)
                 </div>
                 <div class="result-value">
-                  {{ (probA * probB).toFixed(4) }}
+                  {{ (probA! * probB!).toFixed(4) }}
                 </div>
               </div>
               <div class="result-item">
@@ -120,7 +120,7 @@
                   P(A ∪ B) = P(A) + P(B) - P(A ∩ B)
                 </div>
                 <div class="result-value">
-                  {{ (probA + probB - probA * probB).toFixed(4) }}
+                  {{ (probA! + probB! - probA! * probB!).toFixed(4) }}
                 </div>
               </div>
             </div>
@@ -167,7 +167,7 @@
                   P(A|B) = P(A∩B) / P(B)
                 </div>
                 <div class="result-value">
-                  {{ (probAandB / probBCond).toFixed(4) }}
+                  {{ (probAandB! / probBCond!).toFixed(4) }}
                 </div>
               </div>
             </div>
