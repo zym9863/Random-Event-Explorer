@@ -18,6 +18,7 @@
           <option value="coinFlip">抛硬币</option>
           <option value="diceRoll">掷骰子</option>
           <option value="drawCard">抽牌</option>
+          <option value="custom">自定义事件</option>
         </select>
       </div>
 
@@ -29,7 +30,59 @@
         <input type="number" id="simulations" v-model.number="numberOfSimulations" min="1" />
       </div>
 
-      <button @click="startSimulation" class="start-button">
+      <!-- 自定义事件配置表单 -->
+      <div v-if="selectedEvent === 'custom'" class="custom-event-config">
+        <div class="config-header">
+          <span class="control-icon">⚙️</span>
+          自定义事件配置
+        </div>
+
+        <!-- 结果列表 -->
+        <div class="custom-results-list">
+          <div
+            v-for="(item, index) in customEventResults"
+            :key="index"
+            class="custom-result-item"
+          >
+            <div class="result-name-input">
+              <label>结果名称:</label>
+              <input v-model="item.name" placeholder="例如: 成功" />
+            </div>
+            <div class="result-prob-input">
+              <label>概率:</label>
+              <input
+                v-model.number="item.probability"
+                type="number"
+                step="0.01"
+                min="0"
+                max="1"
+                placeholder="0-1之间"
+              />
+            </div>
+            <button
+              v-if="customEventResults.length > 1"
+              @click="removeCustomResult(index)"
+              class="remove-button"
+            >
+              🗑️
+            </button>
+          </div>
+        </div>
+
+        <!-- 添加按钮 -->
+        <button @click="addCustomResult" class="add-button">
+          ➕ 添加结果
+        </button>
+
+        <!-- 校验提示 -->
+        <div class="validation-message" :class="{ 'error': totalProbability !== 1, 'success': totalProbability === 1 }">
+          概率之和: {{ totalProbability.toFixed(2) }}
+          <span v-if="totalProbability !== 1"> (请确保概率之和为 1)</span>
+          <span v-else> ✔️</span>
+        </div>
+      </div>
+
+      <button @click="startSimulation" class="start-button" :disabled="selectedEvent === 'custom' && totalProbability !== 1">
         <span class="button-icon">▶</span>
         开始模拟
       </button>
@@ -136,7 +189,13 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 
-type EventType = 'coinFlip' | 'diceRoll' | 'drawCard';
+type EventType = 'coinFlip' | 'diceRoll' | 'drawCard' | 'custom';
+
+// 自定义事件结果项类型
+interface CustomEventResult {
+  name: string;
+  probability: number;
+}
 
 // 状态管理
 const selectedEvent = ref<EventType>('coinFlip');
@@ -146,8 +205,45 @@ const frequencies = ref<Record<string, number>>({});
 const activeTab = ref<'results' | 'frequency' | 'chart'>('results');
 const isSimulating = ref<boolean>(false);
 
+// 自定义事件配置
+const customEventResults = ref<CustomEventResult[]>([
+  { name: '结果A', probability: 0.5 },
+  { name: '结果B', probability: 0.5 }
+]);
+
 // 计算属性
 const displayedResults = computed(() => results.value.slice(0, 100));
+
+// 自定义事件概率总和计算
+const totalProbability = computed(() => {
+  return customEventResults.value.reduce((sum, item) => sum + (item.probability || 0), 0);
+});
+
+// 加权随机算法
+const weightedRandom = (options: CustomEventResult[]): string => {
+  const total = options.reduce((sum, item) => sum + item.probability, 0);
+  let random = Math.random() * total;
+
+  for (const option of options) {
+    if (random < option.probability) {
+      return option.name;
+    }
+    random -= option.probability;
+  }
+
+  //  fallback to first option if something goes wrong
+  return options[0]?.name || '未知';
+};
+
+// 自定义事件方法
+const addCustomResult = () => {
+  customEventResults.value.push({ name: '', probability: 0 });
+};
+
+const removeCustomResult = (index: number) => {
+  if (customEventResults.value.length <= 1) return;
+  customEventResults.value.splice(index, 1);
+};
 
 // 模拟函数
 const simulateCoinFlip = (): string => {
@@ -231,6 +327,9 @@ const startSimulation = async () => {
           deck = createDeck();
           drawnCards.clear();
           outcome = simulateDrawCard();
+          break;
+        case 'custom':
+          outcome = weightedRandom(customEventResults.value);
           break;
         default:
           return;
@@ -607,6 +706,126 @@ const startSimulation = async () => {
   text-align: center;
   color: var(--text-light);
   font-style: italic;
+}
+
+/* 自定义事件配置表单样式 */
+.custom-event-config {
+  width: 100%;
+  padding: 1rem;
+  background-color: rgba(255, 255, 255, 0.8);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  margin-top: 0.5rem;
+}
+
+.config-header {
+  font-weight: 600;
+  color: var(--text-color);
+  margin-bottom: 1rem;
+  font-size: 0.95rem;
+}
+
+.custom-results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+}
+
+.custom-result-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.result-name-input,
+.result-prob-input {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.result-name-input label,
+.result-prob-input label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.result-name-input input,
+.result-prob-input input {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  width: 150px;
+}
+
+.result-name-input input:focus,
+.result-prob-input input:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(58, 134, 255, 0.2);
+  outline: none;
+}
+
+.remove-button {
+  padding: 0.4rem 0.6rem;
+  background-color: var(--danger-color);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color var(--transition-fast);
+}
+
+.remove-button:hover {
+  background-color: #dc2626;
+}
+
+.add-button {
+  padding: 0.5rem 1rem;
+  background-color: var(--success-color);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color var(--transition-fast);
+  margin-bottom: 0.5rem;
+}
+
+.add-button:hover {
+  background-color: #16a34a;
+}
+
+.validation-message {
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.5rem;
+  border-radius: var(--radius-sm);
+  text-align: center;
+}
+
+.validation-message.error {
+  color: var(--danger-color);
+  background-color: rgba(239, 68, 68, 0.1);
+}
+
+.validation-message.success {
+  color: var(--success-color);
+  background-color: rgba(34, 197, 94, 0.1);
+}
+
+.start-button:disabled {
+  background-color: var(--text-light);
+  cursor: not-allowed;
+  transform: none;
+}
+
+.start-button:disabled:hover {
+  box-shadow: none;
 }
 
 /* 响应式调整 */
